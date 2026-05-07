@@ -49,7 +49,7 @@ The package includes prebuilt Windows x64 executables for:
 - `Tools/ClaudeTerminalBridge`
 - `Tools/ClaudeTerminalWebViewHost`
 
-Normal users do not need the .NET SDK. The source projects are included for development; install the .NET 8 SDK only if you want to modify and rebuild the bridge or WebView2 host yourself.
+Normal users do not need the .NET SDK. The source projects are included under `Tools~` for development; install the .NET 8 SDK only if you want to modify and rebuild the bridge or WebView2 host yourself.
 
 ## Usage
 

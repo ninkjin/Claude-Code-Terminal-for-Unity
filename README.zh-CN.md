@@ -49,7 +49,7 @@ https://github.com/ninkjin/Claude-Code-Terminal-for-Unity.git#main
 - `Tools/ClaudeTerminalBridge`
 - `Tools/ClaudeTerminalWebViewHost`
 
-普通用户不需要安装 .NET SDK。源码项目保留给开发者使用；只有你想修改并重新构建 bridge 或 WebView2 host 时，才需要安装 .NET 8 SDK。
+普通用户不需要安装 .NET SDK。源码项目保留在 `Tools~` 目录下给开发者使用；只有你想修改并重新构建 bridge 或 WebView2 host 时，才需要安装 .NET 8 SDK。
 
 ## 使用
 

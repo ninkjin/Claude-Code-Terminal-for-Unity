@@ -899,10 +899,10 @@ namespace ClaudeTerminal.Editor
             EditorApplication.isPlayingOrWillChangePlaymode || EditorApplication.isCompiling;
 
         private static string DefaultBridgeProjectPath =>
-            Path.Combine(PackageRoot, "Tools", "ClaudeTerminalBridge", "ClaudeTerminalBridge.csproj");
+            Path.Combine(PackageRoot, "Tools~", "ClaudeTerminalBridge", "ClaudeTerminalBridge.csproj");
 
         private static string DefaultWebViewHostProjectPath =>
-            Path.Combine(PackageRoot, "Tools", "ClaudeTerminalWebViewHost", "ClaudeTerminalWebViewHost.csproj");
+            Path.Combine(PackageRoot, "Tools~", "ClaudeTerminalWebViewHost", "ClaudeTerminalWebViewHost.csproj");
 
         private static string DefaultBridgeExecutablePath =>
             Path.Combine(PackageRoot, "Tools", "Prebuilt", "win-x64", "ClaudeTerminalBridge", "ClaudeTerminalBridge.exe");
