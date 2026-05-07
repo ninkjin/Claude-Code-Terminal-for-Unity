@@ -1,6 +1,6 @@
 {
   "name": "com.mortalgame.claude-code-terminal",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "displayName": "Claude Code Terminal",
   "description": "Unity EditorWindow integration for running Claude Code through an xterm.js terminal in WebView2.",
   "unity": "2022.3",

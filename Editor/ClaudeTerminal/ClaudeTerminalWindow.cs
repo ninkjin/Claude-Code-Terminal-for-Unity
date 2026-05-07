@@ -65,14 +65,14 @@ namespace ClaudeTerminal.Editor
 
         private void OnEnable()
         {
-            command = EditorPrefs.GetString(CommandKey, "claude");
-            workingDirectory = EditorPrefs.GetString(WorkingDirectoryKey, ProjectRoot);
-            bridgeProjectPath = GetProjectPathPreference(BridgeProjectPathKey, DefaultBridgeProjectPath);
-            webViewHostProjectPath = GetProjectPathPreference(WebViewHostProjectPathKey, DefaultWebViewHostProjectPath);
-            port = EditorPrefs.GetInt(PortKey, 50557);
-            webPort = EditorPrefs.GetInt(WebPortKey, 50558);
-            controlPort = EditorPrefs.GetInt(ControlPortKey, 50559);
-            scrollbackLimit = EditorPrefs.GetInt(ScrollbackLimitKey, 200000);
+            command = EditorPrefs.GetString(ProjectScopedKey(CommandKey), "claude");
+            workingDirectory = EditorPrefs.GetString(ProjectScopedKey(WorkingDirectoryKey), ProjectRoot);
+            bridgeProjectPath = GetProjectPathPreference(ProjectScopedKey(BridgeProjectPathKey), DefaultBridgeProjectPath);
+            webViewHostProjectPath = GetProjectPathPreference(ProjectScopedKey(WebViewHostProjectPathKey), DefaultWebViewHostProjectPath);
+            port = EditorPrefs.GetInt(ProjectScopedKey(PortKey), 50557);
+            webPort = EditorPrefs.GetInt(ProjectScopedKey(WebPortKey), 50558);
+            controlPort = EditorPrefs.GetInt(ProjectScopedKey(ControlPortKey), 50559);
+            scrollbackLimit = EditorPrefs.GetInt(ProjectScopedKey(ScrollbackLimitKey), 200000);
             TryRestoreRunningSession();
             RefreshMcpClientCount();
             EditorApplication.update += OnEditorUpdate;
@@ -773,14 +773,14 @@ namespace ClaudeTerminal.Editor
 
         private void SaveSettings()
         {
-            EditorPrefs.SetString(CommandKey, command);
-            EditorPrefs.SetString(WorkingDirectoryKey, workingDirectory);
-            EditorPrefs.SetString(BridgeProjectPathKey, bridgeProjectPath);
-            EditorPrefs.SetString(WebViewHostProjectPathKey, webViewHostProjectPath);
-            EditorPrefs.SetInt(PortKey, port);
-            EditorPrefs.SetInt(WebPortKey, webPort);
-            EditorPrefs.SetInt(ControlPortKey, controlPort);
-            EditorPrefs.SetInt(ScrollbackLimitKey, scrollbackLimit);
+            EditorPrefs.SetString(ProjectScopedKey(CommandKey), command);
+            EditorPrefs.SetString(ProjectScopedKey(WorkingDirectoryKey), workingDirectory);
+            EditorPrefs.SetString(ProjectScopedKey(BridgeProjectPathKey), bridgeProjectPath);
+            EditorPrefs.SetString(ProjectScopedKey(WebViewHostProjectPathKey), webViewHostProjectPath);
+            EditorPrefs.SetInt(ProjectScopedKey(PortKey), port);
+            EditorPrefs.SetInt(ProjectScopedKey(WebPortKey), webPort);
+            EditorPrefs.SetInt(ProjectScopedKey(ControlPortKey), controlPort);
+            EditorPrefs.SetInt(ProjectScopedKey(ScrollbackLimitKey), scrollbackLimit);
         }
 
         private void SaveRunningSessionState(string mode = null)
@@ -792,11 +792,11 @@ namespace ClaudeTerminal.Editor
 
             if (!string.IsNullOrEmpty(mode))
             {
-                EditorPrefs.SetString(SessionModeKey, mode);
+                EditorPrefs.SetString(ProjectScopedKey(SessionModeKey), mode);
             }
 
-            SaveProcessId(BridgeProcessIdKey, bridgeProcess);
-            SaveProcessId(HostProcessIdKey, hostProcess);
+            SaveProcessId(ProjectScopedKey(BridgeProcessIdKey), bridgeProcess);
+            SaveProcessId(ProjectScopedKey(HostProcessIdKey), hostProcess);
         }
 
         private static void SaveProcessId(string key, Process process)
@@ -825,14 +825,14 @@ namespace ClaudeTerminal.Editor
 
         private void TryRestoreRunningSession()
         {
-            var mode = EditorPrefs.GetString(SessionModeKey, string.Empty);
+            var mode = EditorPrefs.GetString(ProjectScopedKey(SessionModeKey), string.Empty);
             if (string.IsNullOrEmpty(mode))
             {
                 return;
             }
 
-            bridgeProcess = TryGetRunningProcess(EditorPrefs.GetInt(BridgeProcessIdKey, -1));
-            hostProcess = TryGetRunningProcess(EditorPrefs.GetInt(HostProcessIdKey, -1));
+            bridgeProcess = TryGetRunningProcess(EditorPrefs.GetInt(ProjectScopedKey(BridgeProcessIdKey), -1));
+            hostProcess = TryGetRunningProcess(EditorPrefs.GetInt(ProjectScopedKey(HostProcessIdKey), -1));
             if (!IsRunning)
             {
                 ClearRunningSessionState();
@@ -869,9 +869,9 @@ namespace ClaudeTerminal.Editor
 
         private static void ClearRunningSessionState()
         {
-            EditorPrefs.DeleteKey(SessionModeKey);
-            EditorPrefs.DeleteKey(BridgeProcessIdKey);
-            EditorPrefs.DeleteKey(HostProcessIdKey);
+            EditorPrefs.DeleteKey(ProjectScopedKey(SessionModeKey));
+            EditorPrefs.DeleteKey(ProjectScopedKey(BridgeProcessIdKey));
+            EditorPrefs.DeleteKey(ProjectScopedKey(HostProcessIdKey));
         }
 
         private void EnsureStyles()
@@ -955,6 +955,33 @@ namespace ClaudeTerminal.Editor
         {
             var savedPath = EditorPrefs.GetString(key, defaultPath);
             return File.Exists(savedPath) ? savedPath : defaultPath;
+        }
+
+        private static string ProjectScopedKey(string key)
+        {
+            return $"{key}.{ProjectRootHash}";
+        }
+
+        private static string ProjectRootHash
+        {
+            get
+            {
+                unchecked
+                {
+                    const ulong offsetBasis = 14695981039346656037UL;
+                    const ulong prime = 1099511628211UL;
+                    var normalizedPath = ProjectRoot.Replace('\\', '/').ToUpperInvariant();
+                    var hash = offsetBasis;
+
+                    foreach (var character in normalizedPath)
+                    {
+                        hash ^= character;
+                        hash *= prime;
+                    }
+
+                    return hash.ToString("x16");
+                }
+            }
         }
 
         private static string ProjectRoot => Directory.GetParent(Application.dataPath).FullName;
