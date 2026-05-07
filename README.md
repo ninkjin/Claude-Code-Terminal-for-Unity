@@ -13,6 +13,10 @@ The package adds `Window / Claude Code Terminal` and provides:
 - Chinese IME support, paste support, multi-line paste support, and common terminal shortcuts.
 - Session preservation when Unity enters Play Mode, so starting the game does not immediately kill the terminal process.
 
+## Screenshot
+
+![Claude Code Terminal embedded in Unity](Documentation~/images/claude-code-terminal-unity.png)
+
 ## Installation
 
 In Unity, open:

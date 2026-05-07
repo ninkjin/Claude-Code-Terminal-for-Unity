@@ -13,6 +13,10 @@
 - 支持中文输入法、粘贴、多行粘贴和常用终端快捷键。
 - Unity 进入 Play Mode 时保留终端会话，不会因为运行游戏而直接结束进程。
 
+## 运行截图
+
+![嵌入 Unity 的 Claude Code Terminal](Documentation~/images/claude-code-terminal-unity.png)
+
 ## 安装
 
 在 Unity 中打开：
