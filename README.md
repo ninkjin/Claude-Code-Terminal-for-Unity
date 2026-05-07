@@ -35,10 +35,10 @@ Window / Package Manager / + / Add package from git URL...
 Paste this repository URL:
 
 ```text
-https://github.com/ninkjin/Claude-Code-Terminal-for-Unity.git
+https://github.com/ninkjin/Claude-Code-Terminal-for-Unity.git#upm
 ```
 
-To install the `main` branch explicitly:
+The `upm` branch is the lightweight Unity Package Manager release branch. The `main` branch keeps development sources and is larger. Use `main` only if you want to inspect or modify the source projects:
 
 ```text
 https://github.com/ninkjin/Claude-Code-Terminal-for-Unity.git#main

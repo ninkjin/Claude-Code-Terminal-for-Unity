@@ -35,10 +35,10 @@ Window / Package Manager / + / Add package from git URL...
 把这个仓库地址粘贴进去：
 
 ```text
-https://github.com/ninkjin/Claude-Code-Terminal-for-Unity.git
+https://github.com/ninkjin/Claude-Code-Terminal-for-Unity.git#upm
 ```
 
-如果想明确指定 `main` 分支：
+`upm` 分支是给 Unity Package Manager 使用的轻量发布分支。`main` 分支保留开发源码，体积更大。只有你想查看或修改源码项目时，才建议使用 `main`：
 
 ```text
 https://github.com/ninkjin/Claude-Code-Terminal-for-Unity.git#main
