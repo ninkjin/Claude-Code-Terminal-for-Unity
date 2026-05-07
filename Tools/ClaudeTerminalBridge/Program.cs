@@ -322,6 +322,7 @@ internal sealed class WebTerminalServer : IDisposable
     let pendingHorizontalPin = false;
     let isComposingWithIme = false;
     let pendingCompositionClamp = false;
+    let pendingPaintRefresh = false;
     function schedulePinHorizontalScroll() {
       if (pendingHorizontalPin) {
         return;
@@ -343,6 +344,23 @@ internal sealed class WebTerminalServer : IDisposable
       const screen = terminalElement.querySelector('.xterm-screen');
       if (viewport) viewport.scrollLeft = 0;
       if (screen) screen.scrollLeft = 0;
+    }
+
+    function scheduleTerminalPaintRefresh() {
+      if (pendingPaintRefresh) {
+        return;
+      }
+
+      pendingPaintRefresh = true;
+      requestAnimationFrame(() => {
+        pendingPaintRefresh = false;
+        schedulePinHorizontalScroll();
+        terminal.focus();
+        if (typeof terminal.refresh === 'function') {
+          terminal.refresh(0, Math.max(0, terminal.rows - 1));
+        }
+        window.dispatchEvent(new Event('resize'));
+      });
     }
 
     function scheduleCompositionClamp() {
@@ -501,6 +519,7 @@ internal sealed class WebTerminalServer : IDisposable
       if (controlCharacter !== null) {
         event.preventDefault();
         sendTerminalInput(controlCharacter);
+        scheduleTerminalPaintRefresh();
         return false;
       }
 
