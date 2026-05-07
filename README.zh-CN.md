@@ -21,16 +21,16 @@
 Window / Package Manager / + / Add package from git URL...
 ```
 
-填入你的 GitHub 仓库 URL，例如：
+把这个仓库地址粘贴进去：
 
 ```text
-https://github.com/<your-name>/unity-claude-code-terminal.git
+https://github.com/ninkjin/Claude-Code-Terminal-for-Unity.git
 ```
 
-指定分支或 tag：
+如果想明确指定 `main` 分支：
 
 ```text
-https://github.com/<your-name>/unity-claude-code-terminal.git#main
+https://github.com/ninkjin/Claude-Code-Terminal-for-Unity.git#main
 ```
 
 ## 前置条件

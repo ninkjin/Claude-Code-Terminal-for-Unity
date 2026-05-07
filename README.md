@@ -21,16 +21,16 @@ In Unity, open:
 Window / Package Manager / + / Add package from git URL...
 ```
 
-Enter your GitHub repository URL:
+Paste this repository URL:
 
 ```text
-https://github.com/<your-name>/unity-claude-code-terminal.git
+https://github.com/ninkjin/Claude-Code-Terminal-for-Unity.git
 ```
 
-To install a specific branch or tag:
+To install the `main` branch explicitly:
 
 ```text
-https://github.com/<your-name>/unity-claude-code-terminal.git#main
+https://github.com/ninkjin/Claude-Code-Terminal-for-Unity.git#main
 ```
 
 ## Requirements
