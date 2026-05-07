@@ -7,6 +7,7 @@ An `EditorWindow` package that brings a Claude Code terminal into the Unity Edit
 The package adds `Window / Claude Code Terminal` and provides:
 
 - `Embed WebView2`: embed a near-native Claude Code terminal into a Unity editor panel area.
+- `Embed Native Terminal`: experimental mode that opens a real Windows `cmd.exe` Claude Code session and keeps that window aligned with the Unity panel. This preserves native Windows IME behavior.
 - `Open WebView2`: open the same terminal experience in a standalone WebView2 window.
 - `Stop`: stop the Claude Code terminal session started by this tool.
 - External Claude Code / Unity MCP session detection, so you do not accidentally run multiple MCP-connected sessions.
@@ -64,8 +65,9 @@ Typical workflow:
 1. Confirm `Command` is `claude`.
 2. Confirm `Working Directory` points to the current Unity project root.
 3. Click `Embed WebView2` to use Claude Code inside the Unity editor panel.
-4. Click `Open WebView2` if you want a standalone window.
-5. Click `Stop` when you want to close the current session.
+4. Click `Embed Native Terminal` if you prefer a real Windows cmd window with native IME behavior. The cmd window remains a normal OS window and follows the Claude Code Terminal panel bounds.
+5. Click `Open WebView2` if you want a standalone WebView2 window.
+6. Click `Stop` when you want to close the current session.
 
 ## Settings
 
@@ -79,5 +81,6 @@ Typical workflow:
 ## Known Limitations
 
 - `Embed WebView2` overlays an external WebView2 window onto the Unity editor panel area. It is not a native Unity IMGUI control.
+- `Embed Native Terminal` is an experimental follow mode. It does not truly embed cmd as a Unity control; it launches a real cmd window and moves/resizes it to the panel area. Window focus and z-order still follow Windows rules.
 - The package is currently focused on Windows. macOS and Linux are not supported yet.
 - If an external cmd window already has a Claude Code session connected to Unity MCP, the tool will warn you before starting another session.

@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using UnityEditor;
@@ -27,6 +28,7 @@ namespace ClaudeTerminal.Editor
         private const string SessionModeWeb = "web";
         private const string SessionModeWebView = "webview";
         private const string SessionModeEmbedded = "embedded";
+        private const string SessionModeNativeTerminal = "native-terminal";
 
         private readonly StringBuilder output = new StringBuilder();
         private readonly ClaudeTerminalAnsiFilter ansiFilter = new ClaudeTerminalAnsiFilter();
@@ -53,6 +55,8 @@ namespace ClaudeTerminal.Editor
         private GUIStyle terminalStyle;
         private GUIStyle terminalBoxStyle;
         private bool embeddedMode;
+        private bool nativeTerminalMode;
+        private IntPtr nativeTerminalWindowHandle;
         private int activeMcpClientCount;
         private bool httpClaudeCodeSessionRunning;
         private double nextMcpClientCheckAt;
@@ -99,7 +103,7 @@ namespace ClaudeTerminal.Editor
             DrawExternalMcpConnectionWarning();
             DrawToolbar();
 
-            if (embeddedMode && IsRunning)
+            if ((embeddedMode || nativeTerminalMode) && IsRunning)
             {
                 DrawEmbeddedTerminalArea();
             }
@@ -152,6 +156,11 @@ namespace ClaudeTerminal.Editor
                 EmbedWebViewTerminal();
             }
 
+            if (GUILayout.Button("Embed Native Terminal", EditorStyles.toolbarButton, GUILayout.Width(154)))
+            {
+                EmbedNativeTerminal();
+            }
+
             EditorGUILayout.EndHorizontal();
         }
 
@@ -193,7 +202,14 @@ namespace ClaudeTerminal.Editor
 
             if (Event.current.type == EventType.Repaint)
             {
-                SendEmbeddedBoundsIfNeeded(force: false);
+                if (nativeTerminalMode)
+                {
+                    ApplyNativeTerminalBoundsIfNeeded(force: false);
+                }
+                else
+                {
+                    SendEmbeddedBoundsIfNeeded(force: false);
+                }
             }
         }
 
@@ -263,6 +279,8 @@ namespace ClaudeTerminal.Editor
             hostProcess = null;
             bridgeProcess = null;
             embeddedMode = false;
+            nativeTerminalMode = false;
+            nativeTerminalWindowHandle = IntPtr.Zero;
             hasSentEmbeddedBounds = false;
             ClearRunningSessionState();
             DisposeEmbeddedControlClient();
@@ -408,6 +426,55 @@ namespace ClaudeTerminal.Editor
             }
         }
 
+        private void EmbedNativeTerminal()
+        {
+            SaveSettings();
+            RefreshMcpClientCount();
+            if (!ClaudeMcpConnectionStatus.ConfirmStartWhenExternalConnectionLikely(IsRunning, ProjectRoot))
+            {
+                return;
+            }
+
+            StopSession();
+            nativeTerminalMode = true;
+            embeddedMode = false;
+            hasSentEmbeddedBounds = false;
+            lastSentEmbeddedBounds = default;
+            lastEmbeddedBoundsSentAt = 0;
+            nativeTerminalWindowHandle = IntPtr.Zero;
+
+            try
+            {
+                var nativeTerminalTitle = "ClaudeNativeTerminal-" + Guid.NewGuid().ToString("N");
+                var existingWindows = NativeTerminalWindowController.GetVisibleTopLevelWindows();
+                hostProcess = StartNativeTerminalProcess(nativeTerminalTitle);
+                nativeTerminalWindowHandle = WaitForMainWindowHandle(
+                    hostProcess,
+                    nativeTerminalTitle,
+                    existingWindows,
+                    TimeSpan.FromSeconds(5));
+                if (nativeTerminalWindowHandle == IntPtr.Zero)
+                {
+                    throw new InvalidOperationException("Native terminal window handle was not found.");
+                }
+
+                NativeTerminalWindowController.FollowPanel(
+                    nativeTerminalWindowHandle,
+                    GetEmbeddedScreenBounds());
+
+                status = "native-terminal";
+                SaveRunningSessionState(SessionModeNativeTerminal);
+                Repaint();
+            }
+            catch (Exception ex)
+            {
+                nativeTerminalMode = false;
+                nativeTerminalWindowHandle = IntPtr.Zero;
+                AppendError(ex.Message);
+                status = "error";
+            }
+        }
+
         private async void SendInput()
         {
             if (client == null || string.IsNullOrEmpty(input))
@@ -519,6 +586,106 @@ namespace ClaudeTerminal.Editor
             }
 
             return process;
+        }
+
+        private Process StartNativeTerminalProcess(string nativeTerminalTitle)
+        {
+            var cmdPath = Environment.GetEnvironmentVariable("ComSpec");
+            if (string.IsNullOrWhiteSpace(cmdPath))
+            {
+                cmdPath = "cmd.exe";
+            }
+
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = cmdPath,
+                Arguments = $"/k \"title {nativeTerminalTitle} & chcp 65001 > nul & {command}\"",
+                WorkingDirectory = Directory.Exists(workingDirectory) ? workingDirectory : ProjectRoot,
+                UseShellExecute = true,
+                WindowStyle = ProcessWindowStyle.Normal,
+                CreateNoWindow = false
+            };
+
+            var process = StartWithTemporaryConsoleHostDelegation(startInfo);
+            if (process == null)
+            {
+                throw new InvalidOperationException("Native terminal failed to start.");
+            }
+
+            return process;
+        }
+
+        private static Process StartWithTemporaryConsoleHostDelegation(ProcessStartInfo startInfo)
+        {
+            var previousDelegationConsole = TerminalDelegationRegistry.Read("DelegationConsole");
+            var previousDelegationTerminal = TerminalDelegationRegistry.Read("DelegationTerminal");
+
+            try
+            {
+                TerminalDelegationRegistry.SetConsoleHost();
+                return Process.Start(startInfo);
+            }
+            finally
+            {
+                TerminalDelegationRegistry.Restore("DelegationConsole", previousDelegationConsole);
+                TerminalDelegationRegistry.Restore("DelegationTerminal", previousDelegationTerminal);
+            }
+        }
+
+        private static IntPtr WaitForMainWindowHandle(
+            Process process,
+            string windowTitle,
+            System.Collections.Generic.HashSet<IntPtr> existingWindows,
+            TimeSpan timeout)
+        {
+            var deadline = DateTime.UtcNow + timeout;
+            while (DateTime.UtcNow < deadline)
+            {
+                try
+                {
+                    process.Refresh();
+                    if (process.HasExited)
+                    {
+                        return IntPtr.Zero;
+                    }
+
+                    if (process.MainWindowHandle != IntPtr.Zero)
+                    {
+                        return process.MainWindowHandle;
+                    }
+
+                    var titledWindowHandle = NativeTerminalWindowController.FindTopLevelWindowByTitle(windowTitle);
+                    if (titledWindowHandle != IntPtr.Zero)
+                    {
+                        return titledWindowHandle;
+                    }
+
+                    var newVisibleWindowHandle = NativeTerminalWindowController.FindNewVisibleTopLevelWindow(existingWindows);
+                    if (newVisibleWindowHandle != IntPtr.Zero)
+                    {
+                        return newVisibleWindowHandle;
+                    }
+
+                    process.WaitForInputIdle(100);
+                }
+                catch
+                {
+                    // Console processes may not always report input-idle state.
+                }
+
+                System.Threading.Thread.Sleep(50);
+            }
+
+            process.Refresh();
+            if (process.MainWindowHandle != IntPtr.Zero)
+            {
+                return process.MainWindowHandle;
+            }
+
+            var titledWindow = NativeTerminalWindowController.FindTopLevelWindowByTitle(windowTitle);
+            return titledWindow != IntPtr.Zero
+                ? titledWindow
+                : NativeTerminalWindowController.FindNewVisibleTopLevelWindow(existingWindows);
         }
 
         private string ResolveBridgeExecutablePath()
@@ -719,6 +886,40 @@ namespace ClaudeTerminal.Editor
             }
         }
 
+        private void ApplyNativeTerminalBoundsIfNeeded(bool force)
+        {
+            if (!nativeTerminalMode || hostProcess == null || hostProcess.HasExited)
+            {
+                return;
+            }
+
+            if (nativeTerminalWindowHandle == IntPtr.Zero)
+            {
+                nativeTerminalWindowHandle = hostProcess.MainWindowHandle;
+                if (nativeTerminalWindowHandle == IntPtr.Zero)
+                {
+                    return;
+                }
+            }
+
+            var now = EditorApplication.timeSinceStartup;
+            var bounds = GetEmbeddedScreenBounds();
+            if (!force && hasSentEmbeddedBounds && bounds.Equals(lastSentEmbeddedBounds))
+            {
+                return;
+            }
+
+            if (!force && hasSentEmbeddedBounds && now - lastEmbeddedBoundsSentAt < 0.05)
+            {
+                return;
+            }
+
+            NativeTerminalWindowController.FollowPanel(nativeTerminalWindowHandle, bounds);
+            lastSentEmbeddedBounds = bounds;
+            hasSentEmbeddedBounds = true;
+            lastEmbeddedBoundsSentAt = now;
+        }
+
         private void EnsureEmbeddedControlClient()
         {
             if (embeddedControlClient != null && embeddedControlClient.Connected && embeddedControlWriter != null)
@@ -842,12 +1043,16 @@ namespace ClaudeTerminal.Editor
             }
 
             embeddedMode = mode == SessionModeEmbedded;
+            nativeTerminalMode = mode == SessionModeNativeTerminal;
             status = mode;
-            if (embeddedMode)
+            if (embeddedMode || nativeTerminalMode)
             {
                 hasSentEmbeddedBounds = false;
                 lastSentEmbeddedBounds = default;
                 lastEmbeddedBoundsSentAt = 0;
+                nativeTerminalWindowHandle = nativeTerminalMode && hostProcess != null
+                    ? hostProcess.MainWindowHandle
+                    : IntPtr.Zero;
             }
         }
 
@@ -899,6 +1104,210 @@ namespace ClaudeTerminal.Editor
 
         private static bool IsTransientUnityLifecycle =>
             EditorApplication.isPlayingOrWillChangePlaymode || EditorApplication.isCompiling;
+
+        private static class NativeTerminalWindowController
+        {
+            private const uint SwpShowWindow = 0x0040;
+            private const int SwShow = 5;
+            private const uint RdwInvalidate = 0x0001;
+            private const uint RdwInternalPaint = 0x0002;
+            private const uint RdwErase = 0x0004;
+            private const uint RdwAllChildren = 0x0080;
+            private const uint RdwUpdateNow = 0x0100;
+            private const uint RdwFrame = 0x0400;
+            private static readonly IntPtr HwndTop = IntPtr.Zero;
+            private delegate bool EnumWindowsProc(IntPtr windowHandle, IntPtr lParam);
+
+            public static void FollowPanel(IntPtr terminalWindowHandle, RectInt screenBounds)
+            {
+                if (terminalWindowHandle == IntPtr.Zero)
+                {
+                    return;
+                }
+
+                SetWindowPos(
+                    terminalWindowHandle,
+                    HwndTop,
+                    screenBounds.x,
+                    screenBounds.y,
+                    screenBounds.width,
+                    screenBounds.height,
+                    SwpShowWindow);
+
+                ShowWindow(terminalWindowHandle, SwShow);
+                InvalidateRect(terminalWindowHandle, IntPtr.Zero, true);
+                RedrawWindow(
+                    terminalWindowHandle,
+                    IntPtr.Zero,
+                    IntPtr.Zero,
+                    RdwInvalidate | RdwInternalPaint | RdwErase | RdwAllChildren | RdwUpdateNow | RdwFrame);
+                UpdateWindow(terminalWindowHandle);
+            }
+
+            public static IntPtr FindTopLevelWindowByTitle(string title)
+            {
+                if (string.IsNullOrWhiteSpace(title))
+                {
+                    return IntPtr.Zero;
+                }
+
+                var foundWindowHandle = IntPtr.Zero;
+                EnumWindows((windowHandle, _) =>
+                {
+                    if (!IsWindowVisible(windowHandle))
+                    {
+                        return true;
+                    }
+
+                    var length = GetWindowTextLength(windowHandle);
+                    if (length <= 0)
+                    {
+                        return true;
+                    }
+
+                    var builder = new StringBuilder(length + 1);
+                    GetWindowText(windowHandle, builder, builder.Capacity);
+                    if (builder.ToString().IndexOf(title, StringComparison.OrdinalIgnoreCase) < 0)
+                    {
+                        return true;
+                    }
+
+                    foundWindowHandle = windowHandle;
+                    return false;
+                }, IntPtr.Zero);
+
+                return foundWindowHandle;
+            }
+
+            public static System.Collections.Generic.HashSet<IntPtr> GetVisibleTopLevelWindows()
+            {
+                var windows = new System.Collections.Generic.HashSet<IntPtr>();
+                EnumWindows((windowHandle, _) =>
+                {
+                    if (IsWindowVisible(windowHandle))
+                    {
+                        windows.Add(windowHandle);
+                    }
+
+                    return true;
+                }, IntPtr.Zero);
+                return windows;
+            }
+
+            public static IntPtr FindNewVisibleTopLevelWindow(System.Collections.Generic.HashSet<IntPtr> existingWindows)
+            {
+                var foundWindowHandle = IntPtr.Zero;
+                EnumWindows((windowHandle, _) =>
+                {
+                    if (!IsWindowVisible(windowHandle) || existingWindows.Contains(windowHandle))
+                    {
+                        return true;
+                    }
+
+                    foundWindowHandle = windowHandle;
+                    return false;
+                }, IntPtr.Zero);
+
+                return foundWindowHandle;
+            }
+
+            [DllImport("user32.dll")]
+            private static extern bool SetWindowPos(
+                IntPtr windowHandle,
+                IntPtr insertAfterWindowHandle,
+                int x,
+                int y,
+                int width,
+                int height,
+                uint flags);
+
+            [DllImport("user32.dll")]
+            private static extern bool ShowWindow(IntPtr windowHandle, int commandShow);
+
+            [DllImport("user32.dll")]
+            private static extern bool InvalidateRect(IntPtr windowHandle, IntPtr rect, bool erase);
+
+            [DllImport("user32.dll")]
+            private static extern bool RedrawWindow(IntPtr windowHandle, IntPtr updateRect, IntPtr updateRegion, uint flags);
+
+            [DllImport("user32.dll")]
+            private static extern bool UpdateWindow(IntPtr windowHandle);
+
+            [DllImport("user32.dll")]
+            private static extern bool EnumWindows(EnumWindowsProc callback, IntPtr lParam);
+
+            [DllImport("user32.dll")]
+            private static extern bool IsWindowVisible(IntPtr windowHandle);
+
+            [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+            private static extern int GetWindowText(IntPtr windowHandle, StringBuilder text, int maxCount);
+
+            [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+            private static extern int GetWindowTextLength(IntPtr windowHandle);
+        }
+
+        private static class TerminalDelegationRegistry
+        {
+            private const string StartupKeyPath = @"Console\%%Startup";
+            private const string ConsoleHostGuid = "{B23D10C0-E52E-411E-9D5B-C09FDF709C7D}";
+
+            public static RegistryValueSnapshot Read(string valueName)
+            {
+                using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(StartupKeyPath, writable: false);
+                if (key == null)
+                {
+                    return RegistryValueSnapshot.Missing;
+                }
+
+                var value = key.GetValue(valueName);
+                if (value == null)
+                {
+                    return RegistryValueSnapshot.Missing;
+                }
+
+                return new RegistryValueSnapshot(value, key.GetValueKind(valueName));
+            }
+
+            public static void SetConsoleHost()
+            {
+                using var key = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(StartupKeyPath);
+                key.SetValue("DelegationConsole", ConsoleHostGuid, Microsoft.Win32.RegistryValueKind.String);
+                key.SetValue("DelegationTerminal", ConsoleHostGuid, Microsoft.Win32.RegistryValueKind.String);
+            }
+
+            public static void Restore(string valueName, RegistryValueSnapshot snapshot)
+            {
+                using var key = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(StartupKeyPath);
+                if (!snapshot.Exists)
+                {
+                    key.DeleteValue(valueName, throwOnMissingValue: false);
+                    return;
+                }
+
+                key.SetValue(valueName, snapshot.Value, snapshot.ValueKind);
+            }
+        }
+
+        private readonly struct RegistryValueSnapshot
+        {
+            public static readonly RegistryValueSnapshot Missing = new RegistryValueSnapshot(false, null, Microsoft.Win32.RegistryValueKind.Unknown);
+
+            public RegistryValueSnapshot(object value, Microsoft.Win32.RegistryValueKind valueKind)
+                : this(true, value, valueKind)
+            {
+            }
+
+            private RegistryValueSnapshot(bool exists, object value, Microsoft.Win32.RegistryValueKind valueKind)
+            {
+                Exists = exists;
+                Value = value;
+                ValueKind = valueKind;
+            }
+
+            public bool Exists { get; }
+            public object Value { get; }
+            public Microsoft.Win32.RegistryValueKind ValueKind { get; }
+        }
 
         private static string DefaultBridgeProjectPath =>
             Path.Combine(PackageRoot, "Tools~", "ClaudeTerminalBridge", "ClaudeTerminalBridge.csproj");
