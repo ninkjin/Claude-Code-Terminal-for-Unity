@@ -91,3 +91,7 @@ Typical workflow:
 - Known `Embed Native Terminal` issues: resize the Claude Code Terminal panel while the tool is idle before starting native mode; resizing during a running native session is not reliable. Clicking elsewhere in Unity may make the terminal area appear black; moving or dragging the Claude Code Terminal window usually refreshes it. Window focus, z-order, and taskbar behavior still follow Windows rules.
 - The package is currently focused on Windows. macOS and Linux are not supported yet.
 - If an external cmd window already has a Claude Code session connected to Unity MCP, the tool will warn you before starting another session.
+
+## License
+
+This project is licensed under the MIT License. See [LICENSE](LICENSE).

@@ -91,3 +91,7 @@ Window / Claude Code Terminal
 - `Embed Native Terminal` 的已知问题：只能在 idle 状态先调整好 Claude Code Terminal 面板大小，再启动 native 模式；运行中调整窗口大小不可靠。点击 Unity 的其他区域后，终端区域可能黑屏；拖动一下 Claude Code Terminal 窗口通常可以刷新回来。窗口焦点、层级和任务栏行为仍然遵循 Windows 规则。
 - 当前主要验证 Windows 环境，macOS/Linux 暂未适配。
 - 如果外部 cmd 里已经有连接 Unity MCP 的 Claude Code，工具会提示你先确认是否继续。
+
+## 协议
+
+本项目使用 MIT License，详见 [LICENSE](LICENSE)。
