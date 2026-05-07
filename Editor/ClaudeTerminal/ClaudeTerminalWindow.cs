@@ -438,7 +438,8 @@ namespace ClaudeTerminal.Editor
             var startInfo = new ProcessStartInfo
             {
                 FileName = hostExecutablePath,
-                Arguments = $"--url \"{url}\" --title \"Claude Code Terminal\" --width 1100 --height 760",
+                Arguments = $"--url \"{url}\" --title \"Claude Code Terminal\" --width 1100 --height 760 " +
+                    $"--user-data-folder \"{WebView2UserDataPath}\"",
                 WorkingDirectory = ProjectRoot,
                 UseShellExecute = true,
                 WindowStyle = ProcessWindowStyle.Normal,
@@ -471,7 +472,8 @@ namespace ClaudeTerminal.Editor
             var arguments =
                 $"--embedded --parent-hwnd {parentHandle.ToInt64()} --control-port {controlPort} " +
                 $"--url \"{url}\" --title \"Claude Code Terminal\" " +
-                $"--left {bounds.x} --top {bounds.y} --width {bounds.width} --height {bounds.height}";
+                $"--left {bounds.x} --top {bounds.y} --width {bounds.width} --height {bounds.height} " +
+                $"--user-data-folder \"{WebView2UserDataPath}\"";
 
             var startInfo = new ProcessStartInfo
             {
@@ -909,6 +911,9 @@ namespace ClaudeTerminal.Editor
 
         private static string DefaultWebViewHostExecutablePath =>
             Path.Combine(PackageRoot, "Tools", "Prebuilt", "win-x64", "ClaudeTerminalWebViewHost", "ClaudeTerminalWebViewHost.exe");
+
+        private static string WebView2UserDataPath =>
+            Path.Combine(ProjectRoot, "Library", "ClaudeCodeTerminal", "WebView2UserData");
 
         private static string PackageRoot
         {

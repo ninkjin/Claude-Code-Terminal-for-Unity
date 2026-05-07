@@ -58,7 +58,13 @@ public sealed class TerminalHostForm : Form
                 StartControlServer();
             }
 
-            await webView.EnsureCoreWebView2Async();
+            var userDataFolder = ResolvedUserDataFolder;
+            Directory.CreateDirectory(userDataFolder);
+            var environment = await CoreWebView2Environment.CreateAsync(
+                browserExecutableFolder: null,
+                userDataFolder: userDataFolder);
+
+            await webView.EnsureCoreWebView2Async(environment);
             webView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = true;
             webView.CoreWebView2.Settings.AreDevToolsEnabled = true;
             webView.CoreWebView2.PermissionRequested += HandleWebViewPermissionRequested;
@@ -181,4 +187,12 @@ public sealed class TerminalHostForm : Form
             embeddedRecoveryTimer.Start();
         }
     }
+
+    private string ResolvedUserDataFolder =>
+        !string.IsNullOrWhiteSpace(options.UserDataFolder)
+            ? options.UserDataFolder
+            : Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "ClaudeCodeTerminalForUnity",
+                "WebView2");
 }

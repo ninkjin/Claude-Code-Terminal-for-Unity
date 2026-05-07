@@ -12,6 +12,7 @@ public sealed class HostOptions
     public int Top { get; private init; }
     public int Width { get; private init; } = 1100;
     public int Height { get; private init; } = 760;
+    public string? UserDataFolder { get; private init; }
 
     public static HostOptions Parse(string[] args)
     {
@@ -25,6 +26,7 @@ public sealed class HostOptions
         var top = 0;
         var width = 1100;
         var height = 760;
+        string? userDataFolder = null;
 
         for (var i = 0; i < args.Length; i++)
         {
@@ -71,6 +73,10 @@ public sealed class HostOptions
                     height = Math.Max(420, parsedHeight);
                     i++;
                     break;
+                case "--user-data-folder" when !string.IsNullOrWhiteSpace(value):
+                    userDataFolder = value;
+                    i++;
+                    break;
             }
         }
 
@@ -85,7 +91,8 @@ public sealed class HostOptions
             Left = left,
             Top = top,
             Width = width,
-            Height = height
+            Height = height,
+            UserDataFolder = userDataFolder
         };
     }
 }
