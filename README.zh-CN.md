@@ -37,16 +37,15 @@ https://github.com/ninkjin/Claude-Code-Terminal-for-Unity.git#main
 
 - Windows + Unity 2022.3 或更高版本。
 - 已安装 Claude Code CLI，并且命令行里可以直接运行 `claude`。
-- 已安装 .NET 8 SDK。
-- 已安装 Microsoft Edge WebView2 Runtime。
+- Microsoft Edge WebView2 Runtime。大多数 Windows 10/11 机器已经自带；如果 WebView2 窗口打不开，再手动安装即可。
 - 如果要让 Claude Code 操作 Unity，需要按你的 Unity MCP 插件方式启动并连接 MCP。
 
-首次点击 `Open WebView2` 或 `Embed WebView2` 时，工具会自动 `dotnet build`：
+这个包已经内置 Windows x64 预构建程序：
 
 - `Tools/ClaudeTerminalBridge`
 - `Tools/ClaudeTerminalWebViewHost`
 
-构建产物会生成在各自的 `bin/` 和 `obj/` 目录中，这些目录不需要提交到 Git。
+普通用户不需要安装 .NET SDK。源码项目保留给开发者使用；只有你想修改并重新构建 bridge 或 WebView2 host 时，才需要安装 .NET 8 SDK。
 
 ## 使用
 

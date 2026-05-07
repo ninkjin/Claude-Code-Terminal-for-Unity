@@ -42,10 +42,19 @@ internal sealed class WebTerminalServer : IDisposable
         listener.Start();
         Console.WriteLine($"xterm.js terminal available at http://127.0.0.1:{options.WebPort}/");
 
-        while (listener.IsListening)
+        try
         {
-            var context = await listener.GetContextAsync();
-            _ = Task.Run(() => HandleRequestAsync(context));
+            while (listener.IsListening)
+            {
+                var context = await listener.GetContextAsync();
+                _ = Task.Run(() => HandleRequestAsync(context));
+            }
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+        catch (HttpListenerException) when (!listener.IsListening)
+        {
         }
     }
 
@@ -539,7 +548,20 @@ internal sealed class WebTerminalServer : IDisposable
     public void Dispose()
     {
         session?.Dispose();
-        listener.Stop();
+        try
+        {
+            if (listener.IsListening)
+            {
+                listener.Stop();
+            }
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+        catch (HttpListenerException)
+        {
+        }
+
         listener.Close();
     }
 }
@@ -615,7 +637,16 @@ internal sealed class BridgeServer : IDisposable
     public void Dispose()
     {
         session?.Dispose();
-        listener.Stop();
+        try
+        {
+            listener.Stop();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+        catch (SocketException)
+        {
+        }
     }
 }
 

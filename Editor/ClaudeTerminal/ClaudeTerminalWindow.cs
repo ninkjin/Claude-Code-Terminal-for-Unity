@@ -235,13 +235,6 @@ namespace ClaudeTerminal.Editor
             output.AppendLine("[terminal] starting bridge...");
             status = "starting";
 
-            if (!File.Exists(bridgeProjectPath))
-            {
-                AppendError("Bridge project not found: " + bridgeProjectPath);
-                status = "error";
-                return;
-            }
-
             try
             {
                 bridgeProcess = StartBridgeProcess();
@@ -439,13 +432,7 @@ namespace ClaudeTerminal.Editor
 
         private Process StartWebViewHostProcess()
         {
-            if (!File.Exists(webViewHostProjectPath))
-            {
-                throw new FileNotFoundException("WebView2 host project not found.", webViewHostProjectPath);
-            }
-
-            var hostExecutablePath = GetWebViewHostExecutablePath();
-            EnsureDotnetExecutable(webViewHostProjectPath, hostExecutablePath, "WebView2 host");
+            var hostExecutablePath = ResolveWebViewHostExecutablePath();
 
             var url = $"http://127.0.0.1:{webPort}/";
             var startInfo = new ProcessStartInfo
@@ -471,19 +458,13 @@ namespace ClaudeTerminal.Editor
 
         private Process StartEmbeddedWebViewHostProcess()
         {
-            if (!File.Exists(webViewHostProjectPath))
-            {
-                throw new FileNotFoundException("WebView2 host project not found.", webViewHostProjectPath);
-            }
-
             var parentHandle = Process.GetCurrentProcess().MainWindowHandle;
             if (parentHandle == IntPtr.Zero)
             {
                 throw new InvalidOperationException("Unity main window handle was not found.");
             }
 
-            var hostExecutablePath = GetWebViewHostExecutablePath();
-            EnsureDotnetExecutable(webViewHostProjectPath, hostExecutablePath, "WebView2 host");
+            var hostExecutablePath = ResolveWebViewHostExecutablePath();
 
             var bounds = GetEmbeddedScreenBounds();
             var url = $"http://127.0.0.1:{webPort}/";
@@ -515,8 +496,7 @@ namespace ClaudeTerminal.Editor
 
         private Process StartBridgeProcessWithArguments(string arguments)
         {
-            var bridgeExecutablePath = GetBridgeExecutablePath();
-            EnsureDotnetExecutable(bridgeProjectPath, bridgeExecutablePath, "Bridge");
+            var bridgeExecutablePath = ResolveBridgeExecutablePath();
 
             var startInfo = new ProcessStartInfo
             {
@@ -539,7 +519,43 @@ namespace ClaudeTerminal.Editor
             return process;
         }
 
-        private string GetBridgeExecutablePath()
+        private string ResolveBridgeExecutablePath()
+        {
+            return ResolveToolExecutablePath(
+                DefaultBridgeExecutablePath,
+                bridgeProjectPath,
+                GetBridgeBuildExecutablePath(),
+                "Bridge");
+        }
+
+        private string ResolveWebViewHostExecutablePath()
+        {
+            return ResolveToolExecutablePath(
+                DefaultWebViewHostExecutablePath,
+                webViewHostProjectPath,
+                GetWebViewHostBuildExecutablePath(),
+                "WebView2 host");
+        }
+
+        private string ResolveToolExecutablePath(string prebuiltExecutablePath, string projectPath, string buildExecutablePath, string label)
+        {
+            if (File.Exists(prebuiltExecutablePath))
+            {
+                return prebuiltExecutablePath;
+            }
+
+            if (!File.Exists(projectPath))
+            {
+                throw new FileNotFoundException(
+                    label + " executable was not found. Reinstall the package, or install .NET 8 SDK and build the tool from source.",
+                    prebuiltExecutablePath);
+            }
+
+            EnsureDotnetExecutable(projectPath, buildExecutablePath, label);
+            return buildExecutablePath;
+        }
+
+        private string GetBridgeBuildExecutablePath()
         {
             var bridgeDirectory = Path.GetDirectoryName(bridgeProjectPath);
             if (string.IsNullOrEmpty(bridgeDirectory))
@@ -550,7 +566,7 @@ namespace ClaudeTerminal.Editor
             return Path.Combine(bridgeDirectory, "bin", "Debug", "net8.0", "ClaudeTerminalBridge.exe");
         }
 
-        private string GetWebViewHostExecutablePath()
+        private string GetWebViewHostBuildExecutablePath()
         {
             var hostDirectory = Path.GetDirectoryName(webViewHostProjectPath);
             if (string.IsNullOrEmpty(hostDirectory))
@@ -887,6 +903,12 @@ namespace ClaudeTerminal.Editor
 
         private static string DefaultWebViewHostProjectPath =>
             Path.Combine(PackageRoot, "Tools", "ClaudeTerminalWebViewHost", "ClaudeTerminalWebViewHost.csproj");
+
+        private static string DefaultBridgeExecutablePath =>
+            Path.Combine(PackageRoot, "Tools", "Prebuilt", "win-x64", "ClaudeTerminalBridge", "ClaudeTerminalBridge.exe");
+
+        private static string DefaultWebViewHostExecutablePath =>
+            Path.Combine(PackageRoot, "Tools", "Prebuilt", "win-x64", "ClaudeTerminalWebViewHost", "ClaudeTerminalWebViewHost.exe");
 
         private static string PackageRoot
         {
