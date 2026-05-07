@@ -29,6 +29,7 @@ namespace ClaudeTerminal.Editor
         private const string SessionModeWebView = "webview";
         private const string SessionModeEmbedded = "embedded";
         private const string SessionModeNativeTerminal = "native-terminal";
+        private const int NativeTerminalFollowPadding = 12;
 
         private readonly StringBuilder output = new StringBuilder();
         private readonly ClaudeTerminalAnsiFilter ansiFilter = new ClaudeTerminalAnsiFilter();
@@ -274,6 +275,8 @@ namespace ClaudeTerminal.Editor
             var currentClient = client;
             var currentHostProcess = hostProcess;
             var currentBridgeProcess = bridgeProcess;
+            var currentNativeTerminalWindowHandle = nativeTerminalWindowHandle;
+            var wasNativeTerminalMode = nativeTerminalMode;
 
             client = null;
             hostProcess = null;
@@ -296,7 +299,22 @@ namespace ClaudeTerminal.Editor
                 {
                     if (!currentHostProcess.HasExited)
                     {
-                        currentHostProcess.Kill();
+                        if (wasNativeTerminalMode && currentNativeTerminalWindowHandle != IntPtr.Zero)
+                        {
+                            NativeTerminalWindowController.CloseWindow(currentNativeTerminalWindowHandle);
+                        }
+
+                        if (!currentHostProcess.WaitForExit(500))
+                        {
+                            if (wasNativeTerminalMode)
+                            {
+                                KillProcessTree(currentHostProcess.Id);
+                            }
+                            else
+                            {
+                                currentHostProcess.Kill();
+                            }
+                        }
                     }
                 }
                 catch
@@ -325,6 +343,24 @@ namespace ClaudeTerminal.Editor
             }
 
             status = "idle";
+        }
+
+        private static void KillProcessTree(int processId)
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "taskkill.exe",
+                    Arguments = $"/PID {processId} /T /F",
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                })?.WaitForExit(1000);
+            }
+            catch
+            {
+                // Best-effort cleanup only.
+            }
         }
 
         private static async Task StopClientWithoutBlockingUnityAsync(ClaudeTerminalClient currentClient)
@@ -460,7 +496,7 @@ namespace ClaudeTerminal.Editor
 
                 NativeTerminalWindowController.FollowPanel(
                     nativeTerminalWindowHandle,
-                    GetEmbeddedScreenBounds());
+                    GetNativeTerminalFollowBounds());
 
                 status = "native-terminal";
                 SaveRunningSessionState(SessionModeNativeTerminal);
@@ -903,7 +939,7 @@ namespace ClaudeTerminal.Editor
             }
 
             var now = EditorApplication.timeSinceStartup;
-            var bounds = GetEmbeddedScreenBounds();
+            var bounds = GetNativeTerminalFollowBounds();
             if (!force && hasSentEmbeddedBounds && bounds.Equals(lastSentEmbeddedBounds))
             {
                 return;
@@ -918,6 +954,20 @@ namespace ClaudeTerminal.Editor
             lastSentEmbeddedBounds = bounds;
             hasSentEmbeddedBounds = true;
             lastEmbeddedBoundsSentAt = now;
+        }
+
+        private RectInt GetNativeTerminalFollowBounds()
+        {
+            var bounds = GetEmbeddedScreenBounds();
+            var padding = Mathf.Min(
+                NativeTerminalFollowPadding,
+                Mathf.Max(0, Mathf.Min(bounds.width / 4, bounds.height / 4)));
+
+            return new RectInt(
+                bounds.x + padding,
+                bounds.y + padding,
+                Mathf.Max(160, bounds.width - padding * 2),
+                Mathf.Max(120, bounds.height - padding * 2));
         }
 
         private void EnsureEmbeddedControlClient()
@@ -1117,6 +1167,15 @@ namespace ClaudeTerminal.Editor
             private const uint RdwFrame = 0x0400;
             private static readonly IntPtr HwndTop = IntPtr.Zero;
             private delegate bool EnumWindowsProc(IntPtr windowHandle, IntPtr lParam);
+            private const uint WmClose = 0x0010;
+
+            public static void CloseWindow(IntPtr windowHandle)
+            {
+                if (windowHandle != IntPtr.Zero)
+                {
+                    PostMessage(windowHandle, WmClose, IntPtr.Zero, IntPtr.Zero);
+                }
+            }
 
             public static void FollowPanel(IntPtr terminalWindowHandle, RectInt screenBounds)
             {
@@ -1220,6 +1279,9 @@ namespace ClaudeTerminal.Editor
                 int width,
                 int height,
                 uint flags);
+
+            [DllImport("user32.dll")]
+            private static extern bool PostMessage(IntPtr windowHandle, uint message, IntPtr wordParam, IntPtr longParam);
 
             [DllImport("user32.dll")]
             private static extern bool ShowWindow(IntPtr windowHandle, int commandShow);

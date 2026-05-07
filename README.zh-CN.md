@@ -7,7 +7,7 @@
 这个包提供 `Window / Claude Code Terminal` 菜单，核心能力是：
 
 - `Embed WebView2`：把接近原生 Claude Code 的终端界面嵌入 Unity 面板区域。
-- `Embed Native Terminal`：实验模式，打开真正的 Windows `cmd.exe` Claude Code 会话，并让这个窗口跟随 Unity 面板区域。这个模式保留 Windows 原生输入法体验。
+- `Embed Native Terminal`：作者开发用的实验模式，打开真正的 Windows `cmd.exe` Claude Code 会话，并放到 Unity 面板区域附近。这个模式保留 Windows 原生输入法体验，但不是完善的普通用户嵌入模式。
 - `Open WebView2`：用独立 WebView2 窗口打开同一个终端界面。
 - `Stop`：结束当前由工具启动的 Claude Code 终端会话。
 - 检测外部已连接 Unity MCP 的 Claude Code 会话，避免不小心开多个会话。
@@ -16,7 +16,13 @@
 
 ## 运行截图
 
-![嵌入 Unity 的 Claude Code Terminal](Documentation~/images/claude-code-terminal-unity.png)
+### Embed WebView2
+
+![Claude Code Terminal 的 Embed WebView2 模式](Documentation~/images/embed-webview2-terminal.png)
+
+### Embed Native Terminal
+
+![Claude Code Terminal 的 Embed Native Terminal 模式](Documentation~/images/embed-native-terminal.png)
 
 ## 安装
 
@@ -65,7 +71,7 @@ Window / Claude Code Terminal
 1. 确认 `Command` 是 `claude`。
 2. 确认 `Working Directory` 是当前 Unity 项目的根目录。
 3. 点击 `Embed WebView2`，在 Unity 面板内使用 Claude Code。
-4. 如果更需要原生 Windows 输入法体验，点击 `Embed Native Terminal`。它会保留一个真正的 cmd 窗口，并让这个窗口跟随 Claude Code Terminal 面板大小和位置。
+4. 普通使用建议优先点击 `Embed WebView2`。`Embed Native Terminal` 主要保留给作者开发和测试原生 Windows 输入法体验。
 5. 需要独立 WebView2 窗口时，点击 `Open WebView2`。
 6. 需要关闭当前会话时，点击 `Stop`。
 
@@ -81,6 +87,7 @@ Window / Claude Code Terminal
 ## 已知限制
 
 - `Embed WebView2` 使用外部 WebView2 窗口覆盖到 Unity 面板区域，不是 Unity 原生 IMGUI 控件。
-- `Embed Native Terminal` 是实验性的跟随模式，不是真正把 cmd 变成 Unity 控件；它会启动真实 cmd 窗口并移动/缩放到面板区域，窗口焦点和层级仍然遵循 Windows 规则。
+- `Embed Native Terminal` 是作者开发用的实验功能，不是稳定的内嵌终端；它不是真正把 cmd 变成 Unity 控件，而是启动真实 cmd 窗口并把它放到面板区域附近。
+- `Embed Native Terminal` 的已知问题：只能在 idle 状态先调整好 Claude Code Terminal 面板大小，再启动 native 模式；运行中调整窗口大小不可靠。点击 Unity 的其他区域后，终端区域可能黑屏；拖动一下 Claude Code Terminal 窗口通常可以刷新回来。窗口焦点、层级和任务栏行为仍然遵循 Windows 规则。
 - 当前主要验证 Windows 环境，macOS/Linux 暂未适配。
 - 如果外部 cmd 里已经有连接 Unity MCP 的 Claude Code，工具会提示你先确认是否继续。
